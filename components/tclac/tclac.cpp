@@ -382,6 +382,10 @@ void tclacClimate::takeControl() {
 			dataTX[7] += 0b00000100;
 			dataTX[8] += 0b00000001;	
 			break;
+		case climate::CLIMATE_MODE_AUTO:
+			// Этот режим ESPHome не используется компонентом TCLAC.
+			// Для автоматического режима TCLAC использует CLIMATE_MODE_HEAT_COOL.
+			break;
 	}
 
 	// Настраиваем режим вентилятора
@@ -419,6 +423,10 @@ void tclacClimate::takeControl() {
 				dataTX[8]	+= 0b01000000;
 				dataTX[10]	+= 0b00000000;
 				break;
+			case climate::CLIMATE_FAN_ON:
+			case climate::CLIMATE_FAN_OFF:
+				// Эти общие режимы ESPHome не поддерживаются протоколом TCLAC.
+				break;
 		}
 	}
 	
@@ -455,6 +463,12 @@ void tclacClimate::takeControl() {
 				break;
 			case ClimatePreset::CLIMATE_PRESET_COMFORT:
 				dataTX[8]	+= 0b00010000;
+				break;
+			case ClimatePreset::CLIMATE_PRESET_HOME:
+			case ClimatePreset::CLIMATE_PRESET_AWAY:
+			case ClimatePreset::CLIMATE_PRESET_BOOST:
+			case ClimatePreset::CLIMATE_PRESET_ACTIVITY:
+				// Эти стандартные пресеты ESPHome не поддерживаются протоколом TCLAC.
 				break;
 		}
 	}
