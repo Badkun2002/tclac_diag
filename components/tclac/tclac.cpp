@@ -647,7 +647,7 @@ void tclacClimate::sendData(uint8_t * message, uint8_t size) {
 		if (k == 0) {
 			this->try_send_frame_(0, TX_MAX_DEFERS);
 		} else {
-			esphome::App.scheduler.set_timeout("tx_rep", k * TX_REPEAT_SPACING_MS, [this, k]() {
+			this->set_timeout(k * TX_REPEAT_SPACING_MS, [this, k]() {
 				this->try_send_frame_(k, TX_MAX_DEFERS);
 			});
 		}
@@ -675,7 +675,7 @@ bool tclacClimate::bus_quiet_() {
 // Отправить кадр, если линия свободна; иначе отложить на BUS_QUIET_MS
 void tclacClimate::try_send_frame_(uint8_t attempt, uint8_t defers_left) {
 	if (!this->bus_quiet_() && defers_left > 0) {
-		esphome::App.scheduler.set_timeout("tx_def", BUS_QUIET_MS,
+		this->set_timeout(BUS_QUIET_MS,
 			[this, attempt, defers_left]() {
 				this->try_send_frame_(attempt, defers_left - 1);
 			});
