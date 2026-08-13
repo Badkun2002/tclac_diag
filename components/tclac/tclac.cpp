@@ -4,6 +4,8 @@
 * Refactoring & component making:
 * Соловей с паяльником 15.03.2024
 **/
+#include <cmath>
+
 #include "esphome.h"
 #include "esphome/core/defines.h"
 #include "tclac.h"
@@ -327,7 +329,7 @@ void tclacClimate::takeControl() {
 	
 	// Защита от мусора в байте уставки: до первого статусного кадра
 	// target_temperature = NaN, а (int)NaN — неопределённое поведение.
-	if (isnan(target_temperature) || target_temperature < 16 || target_temperature > 31) {
+	if (std::isnan(target_temperature) || target_temperature < 16 || target_temperature > 31) {
 		target_temperature = 24;
 	}
 	uint8_t target_temperature_set = 31-(int)target_temperature;
@@ -380,6 +382,10 @@ void tclacClimate::takeControl() {
 			dataTX[7] += 0b00000100;
 			dataTX[8] += 0b00000001;	
 			break;
+		case climate::CLIMATE_MODE_AUTO:
+			// Этот режим ESPHome не используется компонентом TCLAC.
+			// Для автоматического режима TCLAC использует CLIMATE_MODE_HEAT_COOL.
+			break;
 	}
 
 	// Настраиваем режим вентилятора
@@ -417,6 +423,10 @@ void tclacClimate::takeControl() {
 				dataTX[8]	+= 0b01000000;
 				dataTX[10]	+= 0b00000000;
 				break;
+			case climate::CLIMATE_FAN_ON:
+			case climate::CLIMATE_FAN_OFF:
+				// Эти общие режимы ESPHome не поддерживаются протоколом TCLAC.
+				break;
 		}
 	}
 	
@@ -453,6 +463,12 @@ void tclacClimate::takeControl() {
 				break;
 			case ClimatePreset::CLIMATE_PRESET_COMFORT:
 				dataTX[8]	+= 0b00010000;
+				break;
+			case ClimatePreset::CLIMATE_PRESET_HOME:
+			case ClimatePreset::CLIMATE_PRESET_AWAY:
+			case ClimatePreset::CLIMATE_PRESET_BOOST:
+			case ClimatePreset::CLIMATE_PRESET_ACTIVITY:
+				// Эти стандартные пресеты ESPHome не поддерживаются протоколом TCLAC.
 				break;
 		}
 	}
@@ -645,7 +661,7 @@ void tclacClimate::sendData(uint8_t * message, uint8_t size) {
 		if (k == 0) {
 			this->try_send_frame_(0, TX_MAX_DEFERS);
 		} else {
-			esphome::App.scheduler.set_timeout("tx_rep", k * TX_REPEAT_SPACING_MS, [this, k]() {
+			this->set_timeout(k * TX_REPEAT_SPACING_MS, [this, k]() {
 				this->try_send_frame_(k, TX_MAX_DEFERS);
 			});
 		}
@@ -673,7 +689,7 @@ bool tclacClimate::bus_quiet_() {
 // Отправить кадр, если линия свободна; иначе отложить на BUS_QUIET_MS
 void tclacClimate::try_send_frame_(uint8_t attempt, uint8_t defers_left) {
 	if (!this->bus_quiet_() && defers_left > 0) {
-		esphome::App.scheduler.set_timeout("tx_def", BUS_QUIET_MS,
+		this->set_timeout(BUS_QUIET_MS,
 			[this, attempt, defers_left]() {
 				this->try_send_frame_(attempt, defers_left - 1);
 			});
@@ -683,16 +699,19 @@ void tclacClimate::try_send_frame_(uint8_t attempt, uint8_t defers_left) {
 	this->esphome::uart::UARTDevice::flush();
 }
 
-// Преобразование байта в читабельный формат
-String tclacClimate::getHex(uint8_t *message, uint8_t size) {
-	String raw;
-	for (int i = 0; i < size; i++) {
-		raw += "\n" + String(message[i]);
+// Преобразование байта в читабельный формат.
+// Используется std::string вместо Arduino String,
+// поэтому функция работает как с Arduino, так и с ESP-IDF.
+std::string tclacClimate::getHex(const uint8_t *message, size_t size) {
+	std::string raw;
+
+	for (size_t i = 0; i < size; i++) {
+		raw += "\n";
+		raw += std::to_string(message[i]);
 	}
-	raw.toUpperCase();
+
 	return raw;
 }
-
 // Вычисление контрольной суммы
 uint8_t tclacClimate::getChecksum(const uint8_t * message, size_t size) {
 	uint8_t position = size - 1;
