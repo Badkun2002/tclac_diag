@@ -7,7 +7,7 @@ external_components:
   - source:
       url: https://github.com/Badkun2002/tclac_diag.git
       type: git
-      ref: db94d2c2c4a75017ef8bc1a8be53c0d1275d729f
+      ref: master
     components: [ tclac ]
     refresh: 30s
 
