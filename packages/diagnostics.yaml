@@ -1,0 +1,41 @@
+# Диагностические сущности TCL. Подключается через packages -> files.
+# Расширяет climate из core.yaml, не заменяя его.
+# В каждом name есть уникальный латинский токен: ESPHome строит id из латиницы,
+# а чистую кириллицу схлопывает в одинаковый id (будет ошибка дубликата).
+climate:
+  - platform: tclac
+    id: !extend ${device_name}climate
+    outdoor_temperature:
+      name: "Уличная температура (outdoor)"
+    outdoor_exhaust_temperature:
+      name: "Внешний блок, выхлоп (exhaust)"
+    outdoor_condenser_temperature:
+      name: "Радиатор внешнего блока (cond)"
+    indoor_coil_raw:
+      name: "Испаритель, сырое (coil)"
+    indoor_fan_speed:
+      name: "Обороты вентилятора (fan)"
+    compressor_power:
+      name: "Мощность компрессора (power)"
+    off_timer_minutes:
+      name: "Таймер выкл, мин (offmin)"
+    on_timer_minutes:
+      name: "Таймер вкл, мин (onmin)"
+    compressor_running:
+      name: "Компрессор работает (run)"
+    health_mode:
+      name: "Режим Health (health)"
+    antimold_mode:
+      name: "Антиплесень (mold)"
+    off_timer_active:
+      name: "Таймер выкл активен (offa)"
+    on_timer_active:
+      name: "Таймер вкл активен (ona)"
+    wifi_paired:
+      name: "Wi-Fi спарен (paired)"
+    four_way_valve:
+      name: "4-ходовой клапан (valve)"
+    compressor_state:
+      name: "Состояние компрессора (state)"
+    raw_status:
+      name: "Сырой кадр (raw)"
