@@ -1,7 +1,7 @@
 ﻿from esphome import automation, pins
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import climate, uart
+from esphome.components import climate, uart, sensor, binary_sensor, text_sensor
 from esphome.const import (
     CONF_ID,
     CONF_LEVEL,
@@ -15,6 +15,15 @@ from esphome.const import (
     CONF_TARGET_TEMPERATURE,
     CONF_SUPPORTED_FAN_MODES,
     CONF_SUPPORTED_SWING_MODES,
+    DEVICE_CLASS_TEMPERATURE,
+    DEVICE_CLASS_RUNNING,
+    DEVICE_CLASS_CONNECTIVITY,
+    DEVICE_CLASS_DURATION,
+    STATE_CLASS_MEASUREMENT,
+    UNIT_CELSIUS,
+    UNIT_MINUTE,
+    ENTITY_CATEGORY_DIAGNOSTIC,
+    ICON_THERMOMETER,
 )
 
 from esphome.components.climate import (
@@ -24,7 +33,7 @@ from esphome.components.climate import (
     CONF_CURRENT_TEMPERATURE,
 )
 
-AUTO_LOAD = ["climate"]
+AUTO_LOAD = ["climate", "sensor", "binary_sensor", "text_sensor"]
 CODEOWNERS = ["@I-am-nightingale", "@xaxexa", "@junkfix"]
 DEPENDENCIES = ["climate", "uart"]
 
@@ -43,6 +52,25 @@ CONF_MODULE_DISPLAY = "show_module_display"
 CONF_HORIZONTAL_AIRFLOW = "horizontal_airflow"
 CONF_VERTICAL_SWING_MODE = "vertical_swing_mode"
 CONF_HORIZONTAL_SWING_MODE = "horizontal_swing_mode"
+
+# --- Диагностические сущности ---
+CONF_OUTDOOR_TEMPERATURE = "outdoor_temperature"
+CONF_OUTDOOR_EXHAUST_TEMPERATURE = "outdoor_exhaust_temperature"
+CONF_OUTDOOR_CONDENSER_TEMPERATURE = "outdoor_condenser_temperature"
+CONF_INDOOR_COIL_RAW = "indoor_coil_raw"
+CONF_INDOOR_FAN_SPEED = "indoor_fan_speed"
+CONF_COMPRESSOR_POWER = "compressor_power"
+CONF_OFF_TIMER_MINUTES = "off_timer_minutes"
+CONF_ON_TIMER_MINUTES = "on_timer_minutes"
+CONF_COMPRESSOR_RUNNING = "compressor_running"
+CONF_HEALTH_MODE = "health_mode"
+CONF_ANTIMOLD_MODE = "antimold_mode"
+CONF_OFF_TIMER_ACTIVE = "off_timer_active"
+CONF_ON_TIMER_ACTIVE = "on_timer_active"
+CONF_WIFI_PAIRED = "wifi_paired"
+CONF_FOUR_WAY_VALVE = "four_way_valve"
+CONF_COMPRESSOR_STATE = "compressor_state"
+CONF_RAW_STATUS = "raw_status"
 
 tclac_ns = cg.esphome_ns.namespace("tclac")
 tclacClimate = tclac_ns.class_("tclacClimate", uart.UARTDevice, climate.Climate, cg.PollingComponent)
@@ -162,6 +190,85 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_SUPPORTED_SWING_MODES,default=["OFF","VERTICAL","HORIZONTAL","BOTH",],): cv.ensure_list(cv.enum(SUPPORTED_SWING_MODES_OPTIONS, upper=True)),
             cv.Optional(CONF_SUPPORTED_MODES,default=["OFF","AUTO","COOL","HEAT","DRY","FAN_ONLY",],): cv.ensure_list(cv.enum(SUPPORTED_CLIMATE_MODES_OPTIONS, upper=True)),
             cv.Optional(CONF_SUPPORTED_FAN_MODES,default=["AUTO","QUIET","LOW","MIDDLE","MEDIUM","HIGH","FOCUS","DIFFUSE",],): cv.ensure_list(cv.enum(SUPPORTED_FAN_MODES_OPTIONS, upper=True)),
+            # --- Диагностические сенсоры (все опциональны) ---
+            cv.Optional(CONF_OUTDOOR_TEMPERATURE): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CELSIUS,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_TEMPERATURE,
+                state_class=STATE_CLASS_MEASUREMENT,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_OUTDOOR_EXHAUST_TEMPERATURE): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CELSIUS,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_TEMPERATURE,
+                state_class=STATE_CLASS_MEASUREMENT,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_OUTDOOR_CONDENSER_TEMPERATURE): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CELSIUS,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_TEMPERATURE,
+                state_class=STATE_CLASS_MEASUREMENT,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_INDOOR_COIL_RAW): sensor.sensor_schema(
+                accuracy_decimals=0,
+                icon=ICON_THERMOMETER,
+                state_class=STATE_CLASS_MEASUREMENT,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_INDOOR_FAN_SPEED): sensor.sensor_schema(
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_COMPRESSOR_POWER): sensor.sensor_schema(
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_OFF_TIMER_MINUTES): sensor.sensor_schema(
+                unit_of_measurement=UNIT_MINUTE,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_DURATION,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_ON_TIMER_MINUTES): sensor.sensor_schema(
+                unit_of_measurement=UNIT_MINUTE,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_DURATION,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_COMPRESSOR_RUNNING): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_RUNNING,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_HEALTH_MODE): binary_sensor.binary_sensor_schema(
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_ANTIMOLD_MODE): binary_sensor.binary_sensor_schema(
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_OFF_TIMER_ACTIVE): binary_sensor.binary_sensor_schema(
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_ON_TIMER_ACTIVE): binary_sensor.binary_sensor_schema(
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_WIFI_PAIRED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_CONNECTIVITY,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_FOUR_WAY_VALVE): text_sensor.text_sensor_schema(
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_COMPRESSOR_STATE): text_sensor.text_sensor_schema(
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_RAW_STATUS): text_sensor.text_sensor_schema(
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -348,3 +455,42 @@ def to_code(config):
         cg.add_define("CONF_RX_LED")
         rx_led_pin = yield cg.gpio_pin_expression(config[CONF_RX_LED])
         cg.add(var.set_rx_led_pin(rx_led_pin))
+
+    # --- Регистрация диагностических сущностей ---
+    _NUMERIC_SETTERS = {
+        CONF_OUTDOOR_TEMPERATURE: var.set_outdoor_temperature_sensor,
+        CONF_OUTDOOR_EXHAUST_TEMPERATURE: var.set_outdoor_exhaust_temperature_sensor,
+        CONF_OUTDOOR_CONDENSER_TEMPERATURE: var.set_outdoor_condenser_temperature_sensor,
+        CONF_INDOOR_COIL_RAW: var.set_indoor_coil_raw_sensor,
+        CONF_INDOOR_FAN_SPEED: var.set_indoor_fan_speed_sensor,
+        CONF_COMPRESSOR_POWER: var.set_compressor_power_sensor,
+        CONF_OFF_TIMER_MINUTES: var.set_off_timer_minutes_sensor,
+        CONF_ON_TIMER_MINUTES: var.set_on_timer_minutes_sensor,
+    }
+    for key, setter in _NUMERIC_SETTERS.items():
+        if key in config:
+            sens = yield sensor.new_sensor(config[key])
+            cg.add(setter(sens))
+
+    _BINARY_SETTERS = {
+        CONF_COMPRESSOR_RUNNING: var.set_compressor_running_sensor,
+        CONF_HEALTH_MODE: var.set_health_mode_sensor,
+        CONF_ANTIMOLD_MODE: var.set_antimold_mode_sensor,
+        CONF_OFF_TIMER_ACTIVE: var.set_off_timer_active_sensor,
+        CONF_ON_TIMER_ACTIVE: var.set_on_timer_active_sensor,
+        CONF_WIFI_PAIRED: var.set_wifi_paired_sensor,
+    }
+    for key, setter in _BINARY_SETTERS.items():
+        if key in config:
+            bs = yield binary_sensor.new_binary_sensor(config[key])
+            cg.add(setter(bs))
+
+    _TEXT_SETTERS = {
+        CONF_FOUR_WAY_VALVE: var.set_four_way_valve_sensor,
+        CONF_COMPRESSOR_STATE: var.set_compressor_state_sensor,
+        CONF_RAW_STATUS: var.set_raw_status_sensor,
+    }
+    for key, setter in _TEXT_SETTERS.items():
+        if key in config:
+            ts = yield text_sensor.new_text_sensor(config[key])
+            cg.add(setter(ts))

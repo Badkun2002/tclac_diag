@@ -5,6 +5,7 @@
 * Соловей с паяльником 15.03.2024
 **/
 #include <cmath>
+#include <cstdio>
 
 #include "esphome.h"
 #include "esphome/core/defines.h"
@@ -274,10 +275,99 @@ void tclacClimate::readData() {
 		this->swing_mode = climate::CLIMATE_SWING_OFF;
 		this->preset = ClimatePreset::CLIMATE_PRESET_NONE;
 	}
+	// Разбираем и публикуем диагностику из того же статусного кадра
+	this->publishDiagnostics();
 	// Публикуем данные
 	this->publish_state();
 	allow_take_control = true;
    }
+
+// Разбор диагностических полей статусного кадра (тип 0x03/0x04, ответ сплита).
+// Смещения байтов соответствуют документации протокола для кадра LEN=0x37
+// (61 байт всего). На «раздутых» кадрах (0x3b/0x3e) младшие байты совпадают,
+// но поля от ~30-го могут быть смещены — на таких моделях значения стоит
+// проверить и при необходимости откалибровать фильтрами в YAML.
+// Все датчики опциональны: публикуем только те, что заведены в конфиге.
+void tclacClimate::publishDiagnostics() {
+	// Фактически принятая длина кадра = тело + заголовок(5) + CRC(1)
+	const uint16_t rx_len = (uint16_t) dataRX[4] + 6;
+	// Безопасное чтение байта: вернёт -1, если индекс за пределами кадра
+	auto rb = [&](uint8_t idx) -> int { return (idx < rx_len) ? (int) dataRX[idx] : -1; };
+
+	// --- Температуры внешнего блока (действительны при работающем компрессоре) ---
+	// Документальная формула: T = byte - 0x16 (приблизительная). Уточняется фильтрами.
+	if (this->outdoor_temperature_sensor_ != nullptr && rb(35) >= 0)
+		this->outdoor_temperature_sensor_->publish_state((float) (rb(35) - 22));
+	if (this->outdoor_exhaust_temperature_sensor_ != nullptr && rb(36) >= 0)
+		this->outdoor_exhaust_temperature_sensor_->publish_state((float) (rb(36) - 22));
+	if (this->outdoor_condenser_temperature_sensor_ != nullptr && rb(37) >= 0)
+		this->outdoor_condenser_temperature_sensor_->publish_state((float) (rb(37) - 22));
+
+	// --- Сырые значения (формулы не подтверждены, публикуем как есть) ---
+	if (this->indoor_coil_raw_sensor_ != nullptr && rb(30) >= 0)
+		this->indoor_coil_raw_sensor_->publish_state((float) rb(30));
+	if (this->indoor_fan_speed_sensor_ != nullptr && rb(34) >= 0)
+		this->indoor_fan_speed_sensor_->publish_state((float) rb(34));
+	if (this->compressor_power_sensor_ != nullptr && rb(39) >= 0)
+		this->compressor_power_sensor_->publish_state((float) rb(39));
+
+	// --- Таймеры (остаток в минутах) ---
+	if (this->off_timer_minutes_sensor_ != nullptr && rb(11) >= 0 && rb(12) >= 0)
+		this->off_timer_minutes_sensor_->publish_state((float) (rb(11) * 60 + rb(12)));
+	if (this->on_timer_minutes_sensor_ != nullptr && rb(13) >= 0 && rb(14) >= 0)
+		this->on_timer_minutes_sensor_->publish_state((float) (rb(13) * 60 + rb(14)));
+
+	// --- Бинарные флаги ---
+	if (this->compressor_running_sensor_ != nullptr && rb(19) >= 0)
+		this->compressor_running_sensor_->publish_state((rb(19) & 0x80) != 0);
+	if (this->health_mode_sensor_ != nullptr && rb(9) >= 0)
+		this->health_mode_sensor_->publish_state((rb(9) & 0x04) != 0);
+	if (this->antimold_mode_sensor_ != nullptr && rb(9) >= 0)
+		this->antimold_mode_sensor_->publish_state((rb(9) & 0x08) != 0);
+	if (this->off_timer_active_sensor_ != nullptr && rb(9) >= 0)
+		this->off_timer_active_sensor_->publish_state((rb(9) & 0x40) != 0);
+	if (this->on_timer_active_sensor_ != nullptr && rb(9) >= 0)
+		this->on_timer_active_sensor_->publish_state((rb(9) & 0x80) != 0);
+	// По документации byte15 == 0x80 означает «не спарен» с wi-fi
+	if (this->wifi_paired_sensor_ != nullptr && rb(15) >= 0)
+		this->wifi_paired_sensor_->publish_state(rb(15) != 0x80);
+
+	// --- Текстовые статусы ---
+	if (this->four_way_valve_sensor_ != nullptr && rb(40) >= 0) {
+		const char *v;
+		switch (rb(40)) {
+			case 0x8A: v = "Охлаждение"; break;
+			case 0x80: v = "Нагрев";     break;
+			case 0xCA: v = "Обогрев";    break;
+			case 0xC0: v = "Переход";    break;
+			default:   v = "Неизвестно"; break;
+		}
+		this->four_way_valve_sensor_->publish_state(v);
+	}
+	if (this->compressor_state_sensor_ != nullptr && rb(19) >= 0) {
+		const char *v;
+		switch (rb(19)) {
+			case 0x08: v = "Выключен"; break;
+			case 0x88: v = "Включён";  break;
+			case 0x89: v = "Сон";      break;
+			default:   v = "Неизвестно"; break;
+		}
+		this->compressor_state_sensor_->publish_state(v);
+	}
+
+	// --- Сырой кадр целиком в HEX (для отладки и доработки формул) ---
+	if (this->raw_status_sensor_ != nullptr) {
+		std::string hex;
+		hex.reserve(rx_len * 3);
+		char buf[4];
+		for (uint16_t i = 0; i < rx_len && i < sizeof(dataRX); i++) {
+			snprintf(buf, sizeof(buf), "%02X ", dataRX[i]);
+			hex += buf;
+		}
+		if (!hex.empty()) hex.pop_back();
+		this->raw_status_sensor_->publish_state(hex);
+	}
+}
 
 // Climate control
 void tclacClimate::control(const climate::ClimateCall &call) {

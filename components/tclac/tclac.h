@@ -14,6 +14,9 @@
 #include "esphome/core/defines.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/climate/climate.h"
+#include "esphome/components/sensor/sensor.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 
 namespace esphome {
 namespace tclac {
@@ -152,6 +155,9 @@ class tclacClimate : public climate::Climate, public esphome::uart::UARTDevice, 
 		}
 
 		void readData();
+		// Разбор и публикация диагностических полей из статусного кадра.
+		// Вызывается из readData() после проверки контрольной суммы.
+		void publishDiagnostics();
 		void takeControl();
 		void loop() override;
 		void setup() override;
@@ -177,6 +183,27 @@ class tclacClimate : public climate::Climate, public esphome::uart::UARTDevice, 
 		void set_supported_modes(climate::ClimateModeMask modes);
 		void set_supported_fan_modes(climate::ClimateFanModeMask fan_modes);
 		void set_supported_swing_modes(climate::ClimateSwingModeMask swing_modes);
+
+		// --- Диагностические сущности (все опциональны, могут быть nullptr) ---
+		void set_outdoor_temperature_sensor(sensor::Sensor *s)        { outdoor_temperature_sensor_ = s; }
+		void set_outdoor_condenser_temperature_sensor(sensor::Sensor *s) { outdoor_condenser_temperature_sensor_ = s; }
+		void set_outdoor_exhaust_temperature_sensor(sensor::Sensor *s)   { outdoor_exhaust_temperature_sensor_ = s; }
+		void set_indoor_coil_raw_sensor(sensor::Sensor *s)           { indoor_coil_raw_sensor_ = s; }
+		void set_indoor_fan_speed_sensor(sensor::Sensor *s)          { indoor_fan_speed_sensor_ = s; }
+		void set_compressor_power_sensor(sensor::Sensor *s)          { compressor_power_sensor_ = s; }
+		void set_off_timer_minutes_sensor(sensor::Sensor *s)         { off_timer_minutes_sensor_ = s; }
+		void set_on_timer_minutes_sensor(sensor::Sensor *s)          { on_timer_minutes_sensor_ = s; }
+
+		void set_compressor_running_sensor(binary_sensor::BinarySensor *s) { compressor_running_sensor_ = s; }
+		void set_health_mode_sensor(binary_sensor::BinarySensor *s)        { health_mode_sensor_ = s; }
+		void set_antimold_mode_sensor(binary_sensor::BinarySensor *s)      { antimold_mode_sensor_ = s; }
+		void set_off_timer_active_sensor(binary_sensor::BinarySensor *s)   { off_timer_active_sensor_ = s; }
+		void set_on_timer_active_sensor(binary_sensor::BinarySensor *s)    { on_timer_active_sensor_ = s; }
+		void set_wifi_paired_sensor(binary_sensor::BinarySensor *s)        { wifi_paired_sensor_ = s; }
+
+		void set_four_way_valve_sensor(text_sensor::TextSensor *s)  { four_way_valve_sensor_ = s; }
+		void set_compressor_state_sensor(text_sensor::TextSensor *s){ compressor_state_sensor_ = s; }
+		void set_raw_status_sensor(text_sensor::TextSensor *s)      { raw_status_sensor_ = s; }
 		
 	protected:
 		GPIOPin *rx_led_pin_;
@@ -190,6 +217,28 @@ class tclacClimate : public climate::Climate, public esphome::uart::UARTDevice, 
 		climate::ClimateFanModeMask supported_fan_modes_{};
 		HorizontalSwingDirection horizontal_swing_direction_;
 		climate::ClimateSwingModeMask supported_swing_modes_{};
+
+		// --- Указатели на диагностические сущности ---
+		sensor::Sensor *outdoor_temperature_sensor_{nullptr};
+		sensor::Sensor *outdoor_condenser_temperature_sensor_{nullptr};
+		sensor::Sensor *outdoor_exhaust_temperature_sensor_{nullptr};
+		sensor::Sensor *indoor_coil_raw_sensor_{nullptr};
+		sensor::Sensor *indoor_fan_speed_sensor_{nullptr};
+		sensor::Sensor *compressor_power_sensor_{nullptr};
+		sensor::Sensor *off_timer_minutes_sensor_{nullptr};
+		sensor::Sensor *on_timer_minutes_sensor_{nullptr};
+
+		binary_sensor::BinarySensor *compressor_running_sensor_{nullptr};
+		binary_sensor::BinarySensor *health_mode_sensor_{nullptr};
+		binary_sensor::BinarySensor *antimold_mode_sensor_{nullptr};
+		binary_sensor::BinarySensor *off_timer_active_sensor_{nullptr};
+		binary_sensor::BinarySensor *on_timer_active_sensor_{nullptr};
+		binary_sensor::BinarySensor *wifi_paired_sensor_{nullptr};
+
+		text_sensor::TextSensor *four_way_valve_sensor_{nullptr};
+		text_sensor::TextSensor *compressor_state_sensor_{nullptr};
+		text_sensor::TextSensor *raw_status_sensor_{nullptr};
+
 		void control(const climate::ClimateCall &call) override;
 };
 }
